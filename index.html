@@ -40,7 +40,7 @@
       let width = 512;
       let height = 512;
 
-      let workerCount = 4;
+      let workerCount = 1;//needs to a power of 2 to avoid rounding errors
       let allData = [];
       //Setup the RGB data array to 0
       for (let i = 0; i < width * height * 3; i++) {
@@ -53,42 +53,45 @@
       let myImageData = ctx.createImageData(width, height);
 
       for (let i = 0; i < workerCount; i++) {
-        let worker = new Worker("./worker.js")
-        let workerHeight = height / (workerCount / 2);
-        //let start = workerCount * workerHeight;
-        worker.postMessage(
-          {
-            x: i % 2 * width / 2,
-            y: workerHeight * Math.floor(i / 2),
-            width: width / 2, height: workerHeight,fullWidth:width, fullHeight:height
-          }
-        );
-
-
-
-        worker.onmessage = function (event) {
-          let workerData = event.data;
-          let data = myImageData.data;
-
-          for (let y = 0; y < workerData.height; y++) {
-            for (let x = 0; x < workerData.width; x++) {
-              let coord = getCoord3(x + workerData.x, y + workerData.y, width);
-              allData[coord] = workerData.imageData[(y * workerData.width + x) * 3]
-              allData[coord + 1] = workerData.imageData[(y * workerData.width + x) * 3 + 1]
-              allData[coord + 2] = workerData.imageData[(y * workerData.width + x) * 3 + 2]
+        for (let j = 0; j < workerCount; j++) {
+          let worker = new Worker("./worker.js")
+          let workerHeight = height / (workerCount);
+          let workerWidth = width/workerCount;
+          //let start = workerCount * workerHeight;
+          worker.postMessage(
+            {
+              x: i * workerWidth,
+              y: j * workerWidth,
+              width: workerWidth, height: workerHeight, fullWidth: width, fullHeight: height
             }
-          }
-          for (let y = 0; y < height; y++) {
-            for (let x = 0; x < width; x++) {
-              let coord4 = getCoord4(x, y, width);
-              let coord3 = getCoord3(x, y, width);
-              data[coord4] = allData[coord3];
-              data[coord4 + 1] = allData[coord3 + 1];
-              data[coord4 + 2] = allData[coord3 + 2];
-              data[coord4 + 3] = 255;
+          );
+
+
+
+          worker.onmessage = function (event) {
+            let workerData = event.data;
+            let data = myImageData.data;
+
+            for (let y = 0; y < workerData.height; y++) {
+              for (let x = 0; x < workerData.width; x++) {
+                let coord = getCoord3(x + workerData.x, y + workerData.y, width);
+                allData[coord] = workerData.imageData[(y * workerData.width + x) * 3]
+                allData[coord + 1] = workerData.imageData[(y * workerData.width + x) * 3 + 1]
+                allData[coord + 2] = workerData.imageData[(y * workerData.width + x) * 3 + 2]
+              }
             }
+            for (let y = 0; y < height; y++) {
+              for (let x = 0; x < width; x++) {
+                let coord4 = getCoord4(x, y, width);
+                let coord3 = getCoord3(x, y, width);
+                data[coord4] = allData[coord3];
+                data[coord4 + 1] = allData[coord3 + 1];
+                data[coord4 + 2] = allData[coord3 + 2];
+                data[coord4 + 3] = 255;
+              }
+            }
+            ctx.putImageData(myImageData, 0, 0);
           }
-          ctx.putImageData(myImageData, 0, 0);
         }
       }
 
